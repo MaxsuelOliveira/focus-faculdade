@@ -188,7 +188,11 @@ export async function createApp(store: Store, queue?: JobQueue) {
       !['sync', 'inspect', 'extract', 'reconcile'].includes(job.kind)
     )
       throw new z.ZodError([]);
-    const id = store.enqueue(job.kind, job.assessment_id);
+    const id = store.enqueue(
+      job.kind,
+      job.assessment_id,
+      job.kind === 'sync' ? store.jobPayload(job.id) : {},
+    );
     void queue?.tick();
     return store.job(id);
   });

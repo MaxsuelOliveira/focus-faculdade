@@ -92,11 +92,17 @@ test('MCP negocia protocolo e reutiliza validações da API com dados isolados',
     });
     assert.ok(!created.isError);
     assert.equal(store.assessment(assessment.id).attempt_id, null);
+    const generalSyncId = store.enqueue('sync', null);
     const synced = await client.callTool({
       name: 'portal_job',
       arguments: { kind: 'sync', course_external_id: '6618' },
     });
     assert.ok(!synced.isError);
+    assert.notEqual(
+      store.dashboard().jobs[0].id,
+      generalSyncId,
+      'consulta específica não pode desaparecer na sincronização geral',
+    );
     assert.equal(store.jobPayload(store.dashboard().jobs[0].id).courseExternalId, '6618');
     const invalidTarget = await client.callTool({
       name: 'portal_job',

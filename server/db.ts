@@ -334,9 +334,9 @@ export class Store {
     if (id) this.assessment(id);
     const existing = this.db
       .prepare(
-        "SELECT id FROM jobs WHERE kind=? AND assessment_id IS ? AND status IN ('queued','running')",
+        "SELECT id FROM jobs WHERE kind=? AND assessment_id IS ? AND status IN ('queued','running') AND (? != 'sync' OR json_extract(payload,'$.courseExternalId') IS json_extract(?,'$.courseExternalId'))",
       )
-      .get(kind, id) as { id: number } | undefined;
+      .get(kind, id, kind, JSON.stringify(payload)) as { id: number } | undefined;
     if (existing) return existing.id;
     if (
       id &&
