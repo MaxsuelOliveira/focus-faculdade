@@ -1,0 +1,11 @@
+node_modules
+dist
+data
+.env*
+.playwright-cli
+output
+test-results
+playwright-report
+package-lock.json
+academic
+private
