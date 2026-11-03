@@ -5,6 +5,7 @@ dist/
 !.env.example
 data/
 output/
+.taste-skill/
 .playwright-cli/
 test-results/
 playwright-report/

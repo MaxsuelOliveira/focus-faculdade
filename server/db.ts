@@ -334,9 +334,10 @@ export class Store {
     if (id) this.assessment(id);
     const existing = this.db
       .prepare(
-        "SELECT id FROM jobs WHERE kind=? AND assessment_id IS ? AND status IN ('queued','running') AND (? != 'sync' OR json_extract(payload,'$.courseExternalId') IS json_extract(?,'$.courseExternalId'))",
+        "SELECT id FROM jobs WHERE kind=? AND assessment_id IS ? AND status IN ('queued','running') AND (? != 'sync' OR json_extract(payload,'$.courseExternalId') IS json_extract(?,'$.courseExternalId')) AND (? NOT IN ('learn_consume','learn_generate','learn_transcribe') OR json_extract(payload,'$.runId') IS json_extract(?,'$.runId'))",
       )
-      .get(kind, id, kind, JSON.stringify(payload)) as { id: number } | undefined;
+      .get(kind, id, kind, JSON.stringify(payload), kind, JSON.stringify(payload)) as
+      { id: number } | undefined;
     if (existing) return existing.id;
     if (
       id &&
@@ -403,7 +404,7 @@ export class Store {
   recover() {
     this.db
       .prepare(
-        "UPDATE jobs SET status=CASE WHEN kind IN ('sync','inspect','extract','reconcile') THEN 'queued' ELSE 'uncertain' END,progress='Execução interrompida; aguardando recuperação',updated_at=? WHERE status='running'",
+        "UPDATE jobs SET status=CASE WHEN kind IN ('sync','inspect','extract','reconcile','learn_discover','learn_consume','learn_generate','learn_transcribe') THEN 'queued' ELSE 'uncertain' END,progress='Execução interrompida; aguardando recuperação',updated_at=? WHERE status='running'",
       )
       .run(this.now());
   }
@@ -418,6 +419,15 @@ export class Store {
     this.db
       .prepare(
         "UPDATE jobs SET status='needs_action',progress='Estado consultado no portal. Revise antes de executar uma nova ação.',updated_at=? WHERE assessment_id=? AND status='uncertain'",
+      )
+      .run(this.now(), id);
+  }
+  resolveUncertainStart(id: number) {
+    // A verified available quiz with no attempt resolves only an interrupted start.
+    // Never infer the outcome of a fill or submission from an absent attempt link.
+    this.db
+      .prepare(
+        "UPDATE jobs SET status='needs_action',progress='Portal confirmou avaliação disponível sem tentativa. Confirme novamente para iniciar.',updated_at=? WHERE assessment_id=? AND kind='start' AND status='uncertain'",
       )
       .run(this.now(), id);
   }

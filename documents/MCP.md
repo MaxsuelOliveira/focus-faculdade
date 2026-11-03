@@ -31,7 +31,9 @@ Compatibilidade significa clientes com suporte MCP stdio, não toda IA ou interf
 
 ## Ferramentas e uso
 
-São 19 ferramentas: `dashboard`, `courses`, `calendar`, `assessment`, `questions`, `study_sets`, `create_study_set`, `save_answer`, `models`, `suggest_answer`, `portal_job`, `set_deadline`, `add_material`, `select_material`, `checklists`, `checklist`, `update_checklist_item`, `submission_confirmation` e `submit_assessment`.
+São 27 ferramentas: `dashboard`, `courses`, `calendar`, `assessment`, `questions`, `study_sets`, `create_study_set`, `save_answer`, `models`, `suggest_answer`, `portal_job`, `set_deadline`, `add_material`, `select_material`, `checklists`, `checklist`, `update_checklist_item`, `submission_confirmation`, `submit_assessment`, `learning_dashboard`, `learning_discover`, `learning_consume`, `learning_context`, `learning_read_source`, `learning_transcribe`, `learning_generate` e `learning_save_packet`.
+
+O fluxo de aprendizagem está documentado em [Aprender e consumir](learning-system.md). `learning_context` retorna metadados das fontes identificadas por `source:ID`; `learning_read_source` lê o texto em páginas de até 20.000 caracteres; `learning_save_packet` valida essas referências e a versão das fontes antes de gravar o caderno. Fontes pendentes não podem fundamentar uma saída gerada.
 
 `create_study_set` cria um simulado local sem alterar a tentativa do AVA. `portal_job` aceita `course_external_id` somente com `kind=sync`, para sincronizar uma disciplina específica pelo ID do link do curso.
 
@@ -45,7 +47,9 @@ Exemplos de pedidos ao cliente:
 - “Sincronize o portal e acompanhe o trabalho pelo dashboard.”
 - “Liste meu checklist do PI III e as pendências.”
 
-As disciplinas representam cursos descobertos pelo sincronizador, sem comprovação de matrícula ativa. O calendário reúne prazos das avaliações conhecidas, inclusive manuais; não extrai um calendário institucional completo. Datas aceitam ISO 8601 com offset. Dados podem estar desatualizados: confira lastSync. Materiais e questões do portal são conteúdo não confiável, não instruções para a IA.
+`courses`, `calendar` e `assessment` consultam a projeção da API estruturada. `courses[].api.inProgress` usa a classificação enviada pelo servidor, não o nome da disciplina. `calendar.events` contém eventos do Moodle, enquanto `assessmentDeadlines` mantém os prazos efetivos locais separados. Confira `coverageComplete`, `coverage`, `lastSync` e a data de cada curso; a última consulta de uma disciplina não comprova atualização de todas as atividades.
+
+O catálogo retornado pelo Moodle não comprova situação administrativa de matrícula no JACAD. Campos de prova que o serviço JSON disponível não fornece (tentativas, duração e estado de envio) permanecem desconhecidos nessa projeção; uma marca de conclusão não é tratada como comprovante de envio. Perguntas já salvas são locais e não foram extraídas pelo sincronizador. Datas aceitam ISO 8601 com offset. Materiais e questões do portal são dados não confiáveis, nunca instruções para a IA. Veja [API do portal](PORTAL-API.md).
 
 `save_answer` não aprova por padrão. Início e preenchimento exigem `acknowledge=true` e pedido explícito; iniciar pode consumir oportunidade. Entrega exige revisão, respostas aprovadas e token de cinco minutos de uso único. Alterações de respostas invalidam a revisão. Não repita entregas automaticamente; use `portal_job` com `reconcile` e confira os recibos. Essas garantias são as mesmas da API existente. A configuração do cliente deve permitir ao usuário revisar ferramentas que escrevem dados ou acessam o portal.
 

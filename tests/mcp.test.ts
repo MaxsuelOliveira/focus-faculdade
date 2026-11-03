@@ -59,7 +59,21 @@ test('MCP negocia protocolo e reutiliza validações da API com dados isolados',
     await server.connect(serverTransport);
     await client.connect(clientTransport);
     const list = await client.listTools();
-    assert.equal(list.tools.length, 19);
+    assert.equal(list.tools.length, 27);
+    for (const name of [
+      'learning_dashboard',
+      'learning_discover',
+      'learning_consume',
+      'learning_context',
+      'learning_save_packet',
+      'learning_read_source',
+      'learning_generate',
+      'learning_transcribe',
+    ])
+      assert.ok(
+        list.tools.some((t) => t.name === name),
+        name,
+      );
     const calendar = await client.callTool({
       name: 'calendar',
       arguments: { from: '2026-10-31T00:00:00-03:00', to: '2026-11-01T00:00:00-03:00' },

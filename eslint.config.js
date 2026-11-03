@@ -12,6 +12,8 @@ export default ts.config(
       '.playwright-cli/**',
       'test-results/**',
       'playwright-report/**',
+      'academic/**',
+      'private/**',
     ],
   },
   js.configs.recommended,

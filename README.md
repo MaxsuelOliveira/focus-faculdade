@@ -18,6 +18,12 @@ Projeto independente, sem vínculo oficial com a instituição. Cada aluno usa s
 
 ## O que você pode fazer
 
+### Aprender e consumir
+
+O novo fluxo reúne seleção de disciplinas, consumo rastreável dos materiais, resumo, mapa mental, slides e simulados locais. A direção visual foi aprovada; a integração e a validação com a disciplina piloto continuam em andamento. Vídeos sem transcrição permanecem identificados como pendentes.
+
+Veja a [arquitetura, telas e estado da implementação](documents/learning-system.md) e o [rascunho do artigo](documents/articles/learning-with-sources-draft.md). O protótipo é servido pelo Vite em `/documents/prototypes/learning/index.html`; os exemplos dele não são materiais extraídos do AVA.
+
 | Recurso                  | Como ajuda                                                        |
 | ------------------------ | ----------------------------------------------------------------- |
 | Disciplinas e avaliações | Consulte cursos descobertos, regras e estado das tentativas.      |
@@ -25,7 +31,7 @@ Projeto independente, sem vínculo oficial com a instituição. Cada aluno usa s
 | Simulados com IA         | Cole perguntas, receba explicações e salve seu gabarito.          |
 | Materiais                | Use textos do AVA e conteúdos adicionados por você como contexto. |
 | Checklists               | Acompanhe tarefas e notas com persistência local.                 |
-| MCP                      | Use 19 ferramentas, um recurso e um prompt no seu cliente de IA.  |
+| MCP                      | Use 27 ferramentas, um recurso e um prompt no seu cliente de IA.  |
 | Backup e exportação      | Faça cópias do SQLite e exporte seus dados e respostas.           |
 
 ## Comece em poucos passos
@@ -52,7 +58,9 @@ npm run build
 npm start
 ```
 
-Abra **[http://127.0.0.1:4317](http://127.0.0.1:4317)** e mantenha o aplicativo aberto. Use o IP literal; `localhost` não está entre as origens permitidas. A sincronização acessa sua conta e pode abrir um navegador. CAPTCHA/MFA exigem intervenção do aluno.
+Abra **[http://127.0.0.1:4317](http://127.0.0.1:4317)** e mantenha o aplicativo aberto. Use o IP literal; `localhost` não está entre as origens permitidas. A sincronização autentica por HTTP e consulta exclusivamente a API JSON do Moodle, sem abrir navegador. Se a instituição exigir CAPTCHA/MFA ou negar um serviço, a operação informa o impedimento e mantém o snapshot anterior, sem fallback visual.
+
+Os contratos observados, campos disponíveis e limites estão em [API do portal](documents/PORTAL-API.md). O [OpenAPI](documents/portal-api.openapi.json) também fica disponível em `/api/portal/openapi`. Valores ausentes na API são apresentados como desconhecidos; não há promessa de precisão absoluta sobre dados que o portal não disponibiliza.
 
 > Usa Codex com política RTK? Prefixe os comandos com `rtk proxy`, como em `rtk proxy npm.cmd run build`.
 
@@ -120,8 +128,9 @@ flowchart LR
   B -->|API local| C[Fastify]
   D[Interface React] --> C
   C --> E[(SQLite local)]
-  C --> F[Fila serial + Playwright]
-  F --> G[JACAD / AVA]
+  C --> F[Fila serial]
+  F -->|Sincronização HTTP + JSON| G[JACAD / API Moodle]
+  F -->|Ações explicitamente autorizadas| I[Playwright / AVA]
   C --> H[Ollama ou OpenAI opcional]
 ```
 
@@ -143,6 +152,8 @@ Testes usam dados fictícios e bancos temporários, sem iniciar avaliações rea
 ## Documentação e limites
 
 - [Ferramentas e configuração MCP](documents/MCP.md)
+- [Integração HTTP e API estruturada do portal](documents/PORTAL-API.md)
+- [Contrato OpenAPI](documents/portal-api.openapi.json)
 - [Operação local, IA, backups e recuperação](documents/OPERATIONS.md)
 - [Segurança e privacidade](SECURITY.md)
 - [Como contribuir](CONTRIBUTING.md)
@@ -151,3 +162,5 @@ Testes usam dados fictícios e bancos temporários, sem iniciar avaliações rea
 A descoberta de cursos depende do acesso da conta e das páginas conhecidas. O calendário contém prazos conhecidos das avaliações, não todo o calendário institucional. A extração textual não interpreta automaticamente imagens, PDFs, vídeos ou SCORM. Questões com editor rico, anexos e tipos especiais podem exigir intervenção manual. Mudanças no portal podem exigir atualização dos adaptadores. Respostas de IA precisam de revisão.
 
 Encontrou um problema? Abra uma issue com um exemplo fictício. Quer ajudar outros alunos? Contribua com acessibilidade, documentação, testes e compatibilidade — sem dados pessoais.
+
+A aprendizagem agora inclui geração local pelo Ollama, legendas de vídeo com timestamps, reconhecimento opcional de áudio e OCR local de imagens. O caderno oferece mapa em árvore, slides, resumo e simulado com fontes, além de exportações Markdown/SVG/HTML. Escolha explicitamente um modelo instalado; materiais inacessíveis e exclusões aparecem como limites de cobertura. Consulte [configuração e evidências](documents/learning-system.md) e o [artigo técnico](documents/articles/learning-with-sources-draft.md).

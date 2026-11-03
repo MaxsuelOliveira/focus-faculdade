@@ -1,25 +1,35 @@
 import type { Job } from '../../shared/types.js';
-import { config } from '../config.js';
 import { hash, type Store } from '../db.js';
 import {
   collectAttempt,
   fillQuestion,
   openAttempt,
-  readCourse,
   readQuestionPage,
   readQuiz,
   attemptPages,
   verifyFilled,
 } from './ava.js';
 import { assertPortalUrl, assertReadable, NeedsAction, PortalSession } from './session.js';
+import { syncPortal } from '../portal/sync.js';
+import { quizRulesFingerprint } from './rules.js';
+import { consumeLearning, discoverLearning } from '../learning/portal.js';
+import { generateLearning } from '../learning/generate.js';
+import { transcribeLearning } from '../learning/transcribe.js';
 
 export class PortalRunner {
   session = new PortalSession();
-  constructor(private store: Store) {}
+  constructor(
+    private store: Store,
+    private syncApi = syncPortal,
+  ) {}
   progress(job: Job, text: string) {
     this.store.updateJob(job.id, 'running', text);
   }
   async execute(job: Job) {
+    if (job.kind === 'learn_transcribe') return transcribeLearning(this.store, job);
+    if (job.kind === 'learn_generate') return generateLearning(this.store, job);
+    if (job.kind === 'learn_discover') return discoverLearning(this.store);
+    if (job.kind === 'learn_consume') return consumeLearning(this.store, this.session, job);
     if (job.kind === 'sync') return this.sync(job);
     if (!job.assessment_id) throw new Error('Avaliação ausente.');
     const a = this.store.assessment(job.assessment_id);
@@ -47,6 +57,8 @@ export class PortalRunner {
         await openAttempt(page, this.store.assessment(a.id));
         this.store.replaceQuestions(a.id, await collectAttempt(page), info.attempt_id);
         this.store.resolveUncertain(a.id);
+      } else if (info.status === 'available') {
+        this.store.resolveUncertainStart(a.id);
       } else
         throw new NeedsAction(
           'O portal ainda não permite confirmar o estado da tentativa. Confira manualmente.',
@@ -61,7 +73,7 @@ export class PortalRunner {
       if (
         Date.parse(authorization.expiresAt) < Date.now() ||
         authorization.rulesFingerprint !==
-          hash([info.instructions, info.duration_minutes, info.due_at])
+          quizRulesFingerprint(info, this.store.setting(`due:${a.course_id}:${a.external_id}`))
       )
         throw new NeedsAction(
           'As regras mudaram ou a autorização de início expirou. Consulte e confirme novamente.',
@@ -191,65 +203,12 @@ export class PortalRunner {
     this.store.upsertAssessment({ ...this.store.assessment(a.id), status: 'submitted' });
   }
   async sync(job: Job) {
-    const page = await this.session.ava();
     const target = this.store.jobPayload(job.id).courseExternalId;
-    if (target && !/^[1-9]\d{0,9}$/.test(target)) throw new Error('Disciplina inválida.');
-    if (target)
-      await page.goto(
-        assertPortalUrl(`https://graduacao.faculdadefocus.edu.br/course/view.php?id=${target}`),
-        { waitUntil: 'domcontentloaded' },
-      );
-    const first = await readCourse(page);
-    const candidates = target
-      ? [page.url()]
-      : [config.courseUrl, ...first.courses.map((c) => c.url)];
-    const urls = candidates.flatMap((input) => {
-      try {
-        const url = new URL(input);
-        const id = url.searchParams.get('id');
-        if (url.hostname !== 'graduacao.faculdadefocus.edu.br' || !id || id === '1') return [];
-        return [
-          `https://graduacao.faculdadefocus.edu.br/course/view.php?id=${encodeURIComponent(id)}`,
-        ];
-      } catch {
-        return [];
-      }
-    });
-    let index = 0;
-    let skipped = 0;
-    for (const url of [...new Set(urls)].slice(0, 80)) {
-      this.progress(job, `Consultando disciplina ${++index}`);
-      await page.goto(assertPortalUrl(url), { waitUntil: 'domcontentloaded' });
-      await assertReadable(page);
-      if (new URL(page.url()).pathname !== '/course/view.php') {
-        skipped++;
-        continue;
-      }
-      const course = await readCourse(page);
-      const saved = this.store.course(course);
-      for (const material of course.materials.slice(0, 100)) {
-        await page.goto(assertPortalUrl(material.url), { waitUntil: 'domcontentloaded' });
-        await assertReadable(page);
-        const region = page.locator('#region-main');
-        if (await region.count()) {
-          const content = (await region.innerText()).trim().slice(0, 150000);
-          if (content) this.store.upsertMaterial(saved.id, material.title, content, material.url);
-        }
-      }
-      for (const quiz of course.quizzes) {
-        await page.goto(assertPortalUrl(quiz.url), { waitUntil: 'domcontentloaded' });
-        const info = await readQuiz(page);
-        const external_id = new URL(quiz.url).searchParams.get('id');
-        if (!external_id) continue;
-        this.store.upsertAssessment({ ...info, external_id, course_id: saved.id, url: quiz.url });
-      }
-    }
-    this.store.setSetting('lastSync', this.store.now());
-    this.store.updateReminders();
+    const result = await this.syncApi(this.store, target, (message) => this.progress(job, message));
     this.store.updateJob(
       job.id,
       'completed',
-      `Consulta concluída: ${index - skipped} disciplinas; ${skipped} links indisponíveis ignorados.`,
+      `API: ${result.courses} disciplinas, ${result.modules} atividades e ${result.events} eventos sincronizados.`,
     );
   }
 }

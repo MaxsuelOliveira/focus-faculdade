@@ -61,7 +61,18 @@ export interface Material {
   url: string;
   selected: number;
 }
-export type JobKind = 'sync' | 'inspect' | 'start' | 'extract' | 'fill' | 'submit' | 'reconcile';
+export type JobKind =
+  | 'sync'
+  | 'inspect'
+  | 'start'
+  | 'extract'
+  | 'fill'
+  | 'submit'
+  | 'reconcile'
+  | 'learn_discover'
+  | 'learn_consume'
+  | 'learn_generate'
+  | 'learn_transcribe';
 export interface Job {
   id: number;
   kind: JobKind;

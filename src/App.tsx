@@ -3,6 +3,7 @@ import QuestionCard, { questionText } from './components/QuestionCard';
 import StudyIllustration from './components/StudyIllustration';
 import StudyDesk from './components/StudyDesk';
 import ChecklistBoard from './components/ChecklistBoard';
+import LearningDesk from './components/LearningDesk';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ArrowDownToLine,
@@ -38,6 +39,7 @@ import { api, formatDate, post } from './api';
 
 type View =
   | 'overview'
+  | 'learning'
   | 'checklists'
   | 'study'
   | 'courses'
@@ -58,6 +60,7 @@ type Confirmation = {
   questions: Question[];
 };
 const labels: Record<View, string> = {
+  learning: 'Aprender e consumir',
   overview: 'Visão geral',
   checklists: 'Meu checklist',
   study: 'Gabaritos com IA',
@@ -69,6 +72,10 @@ const labels: Record<View, string> = {
 };
 
 const jobLabels: Record<JobKind, string> = {
+  learn_discover: 'Descobrir disciplinas',
+  learn_consume: 'Consumir materiais',
+  learn_generate: 'Gerar caderno de estudos',
+  learn_transcribe: 'Transcrever videoaulas',
   sync: 'Sincronizar disciplinas',
   inspect: 'Consultar avaliação',
   extract: 'Extrair questões',
@@ -79,6 +86,7 @@ const jobLabels: Record<JobKind, string> = {
 };
 const nav = [
   { id: 'overview', icon: LayoutDashboard },
+  { id: 'learning', icon: BookOpen },
   { id: 'checklists', icon: ListChecks },
   { id: 'study', icon: Sparkles },
   { id: 'courses', icon: BookOpen },
@@ -95,11 +103,10 @@ const empty: Dashboard = {
   lastSync: null,
 };
 export default function App() {
-  const [view, setView] = useState<View>(
-    new URLSearchParams(window.location.search).get('view') === 'checklists'
-      ? 'checklists'
-      : 'overview',
-  );
+  const [view, setView] = useState<View>(() => {
+    const requested = new URLSearchParams(window.location.search).get('view');
+    return requested && Object.hasOwn(labels, requested) ? (requested as View) : 'overview';
+  });
   const [dashboard, setDashboard] = useState<Dashboard>(empty);
   const [detail, setDetail] = useState<AssessmentDetail | null>(null);
   const [library, setLibrary] = useState<
@@ -203,6 +210,9 @@ export default function App() {
   };
   const navigate = (next: View) => {
     setView(next);
+    const url = new URL(window.location.href);
+    url.searchParams.set('view', next);
+    window.history.replaceState(null, '', url);
     setDetail(null);
     detailId.current = null;
     setSearch('');
@@ -653,33 +663,35 @@ export default function App() {
             </>
           ) : (
             <>
-              <div className="page-heading">
-                <div>
-                  <div className="eyebrow">SEU PRÓXIMO PASSO COMEÇA AQUI</div>
-                  <h1>
-                    {view === 'overview'
-                      ? `${hour < 12 ? 'Bom dia' : hour < 18 ? 'Boa tarde' : 'Boa noite'}, vamos estudar?`
-                      : labels[view]}
-                  </h1>
-                  <p>
-                    {view === 'overview'
-                      ? 'Menos preocupação com prazos. Mais espaço para aprender.'
-                      : view === 'automation'
-                        ? 'Acompanhe cada etapa da navegação no portal.'
-                        : view === 'settings'
-                          ? 'Um espaço de estudos do seu jeito, neste computador.'
-                          : 'Tudo organizado para você seguir em frente.'}
-                  </p>
+              {view !== 'learning' && (
+                <div className="page-heading">
+                  <div>
+                    <div className="eyebrow">SEU PRÓXIMO PASSO COMEÇA AQUI</div>
+                    <h1>
+                      {view === 'overview'
+                        ? `${hour < 12 ? 'Bom dia' : hour < 18 ? 'Boa tarde' : 'Boa noite'}, vamos estudar?`
+                        : labels[view]}
+                    </h1>
+                    <p>
+                      {view === 'overview'
+                        ? 'Menos preocupação com prazos. Mais espaço para aprender.'
+                        : view === 'automation'
+                          ? 'Acompanhe cada etapa da navegação no portal.'
+                          : view === 'settings'
+                            ? 'Um espaço de estudos do seu jeito, neste computador.'
+                            : 'Tudo organizado para você seguir em frente.'}
+                    </p>
+                  </div>
+                  <button
+                    className="button primary"
+                    onClick={() => void enqueue('sync')}
+                    disabled={working || !!busyJob}
+                  >
+                    <RefreshCw size={16} className={busyJob ? 'spinning' : ''} />
+                    {busyJob ? 'Sincronizando…' : 'Sincronizar portal'}
+                  </button>
                 </div>
-                <button
-                  className="button primary"
-                  onClick={() => void enqueue('sync')}
-                  disabled={working || !!busyJob}
-                >
-                  <RefreshCw size={16} className={busyJob ? 'spinning' : ''} />
-                  {busyJob ? 'Sincronizando…' : 'Sincronizar portal'}
-                </button>
-              </div>
+              )}
               {loading ? (
                 <div className="loading">
                   <LoaderCircle className="spinning" />
@@ -848,6 +860,7 @@ export default function App() {
                     </>
                   )}
                   {view === 'checklists' && <ChecklistBoard />}
+                  {view === 'learning' && <LearningDesk />}
                   {view === 'study' && <StudyDesk courses={dashboard.courses} />}
                   {view === 'courses' && (
                     <>

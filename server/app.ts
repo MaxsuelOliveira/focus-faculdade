@@ -3,13 +3,16 @@ import fastifyStatic from '@fastify/static';
 import { existsSync } from 'node:fs';
 import path from 'node:path';
 import { z } from 'zod';
-import { Store, markdown, hash } from './db.js';
+import { Store, markdown } from './db.js';
 import { config } from './config.js';
 import { models, suggest } from './ai.js';
 import { backup } from './backup.js';
 import type { JobQueue } from './automation/queue.js';
 import { registerStudy } from './study.js';
 import { registerChecklists } from './checklists.js';
+import { quizRulesFingerprint } from './automation/rules.js';
+import { registerLearning } from './learning/routes.js';
+import { registerPortal } from './portal/routes.js';
 
 const positive = z.coerce.number().int().positive();
 const answerSchema = z.object({
@@ -60,6 +63,8 @@ export async function createApp(store: Store, queue?: JobQueue) {
   app.get('/api/health', async () => ({ ok: true }));
   await registerStudy(app, store);
   await registerChecklists(app, store);
+  await registerLearning(app, store);
+  await registerPortal(app, store);
   app.get('/api/dashboard', async () => {
     store.updateReminders();
     return store.dashboard();
@@ -155,11 +160,7 @@ export async function createApp(store: Store, queue?: JobQueue) {
       input.kind === 'start' && assessment
         ? {
             expiresAt: new Date(Date.now() + 5 * 60_000).toISOString(),
-            rulesFingerprint: hash([
-              assessment.instructions,
-              assessment.duration_minutes,
-              assessment.due_at,
-            ]),
+            rulesFingerprint: quizRulesFingerprint(assessment),
           }
         : input.course_external_id
           ? { courseExternalId: input.course_external_id }

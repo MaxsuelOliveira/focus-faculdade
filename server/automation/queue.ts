@@ -15,11 +15,35 @@ export class JobQueue {
     const job = this.store.nextJob();
     if (!job) return;
     this.busy = true;
-    this.store.updateJob(job.id, 'running', 'Abrindo navegador e verificando sessão');
+    this.store.updateJob(
+      job.id,
+      'running',
+      ['sync', 'learn_discover'].includes(job.kind)
+        ? 'Autenticando por HTTP e consultando API estruturada'
+        : job.kind === 'learn_generate'
+          ? 'Preparando fontes e modelo local'
+          : job.kind === 'learn_transcribe'
+            ? 'Preparando legendas e transcrição local'
+            : 'Abrindo navegador e verificando sessão',
+    );
     try {
       await this.execute(job);
-      if (this.store.job(job.id).status === 'running')
-        this.store.updateJob(job.id, 'completed', 'Concluído');
+      if (this.store.job(job.id).status === 'running') {
+        const runId = this.store.jobPayload(job.id).runId;
+        const paused =
+          job.kind.startsWith('learn_') &&
+          runId &&
+          (
+            this.store.db
+              .prepare('SELECT status FROM learning_runs WHERE id=?')
+              .get(Number(runId)) as { status: string } | undefined
+          )?.status === 'paused';
+        this.store.updateJob(
+          job.id,
+          paused ? 'needs_action' : 'completed',
+          paused ? 'Consumo pausado. Retome no painel.' : 'Concluído',
+        );
+      }
     } catch (error) {
       // Erros de Playwright podem incluir valores de campos; nunca persistir mensagens brutas.
       const uncertain = ['submit', 'fill', 'start'].includes(job.kind);

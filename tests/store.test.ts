@@ -9,6 +9,23 @@ import { JobQueue } from '../server/automation/queue.js';
 import { backup } from '../server/backup.js';
 import { createApp } from '../server/app.js';
 
+test('available quiz reconciliation clears only uncertain starts', () => {
+  const f = fixture();
+  try {
+    const start = f.store.enqueue('start', f.assessment.id);
+    const fill = f.store.enqueue('fill', f.assessment.id);
+    const submit = f.store.enqueue('submit', f.assessment.id);
+    for (const id of [start, fill, submit]) f.store.updateJob(id, 'uncertain', 'Interrupted');
+    f.store.resolveUncertainStart(f.assessment.id);
+    assert.equal(f.store.job(start).status, 'needs_action');
+    assert.equal(f.store.job(fill).status, 'uncertain');
+    assert.equal(f.store.job(submit).status, 'uncertain');
+    assert.throws(() => f.store.enqueue('start', f.assessment.id), /resultado incerto/);
+  } finally {
+    f.cleanup();
+  }
+});
+
 export function fixture(directory = mkdtempSync(path.join(tmpdir(), 'focus-test-'))) {
   const store = new Store(directory);
   const course = store.course({

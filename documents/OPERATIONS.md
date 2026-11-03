@@ -21,7 +21,7 @@ O aplicativo precisa ser iniciado na raiz do projeto, para resolver corretamente
 
 ## Fluxo acadêmico
 
-1. Sincronize para consultar cursos, questionários e materiais textuais acessíveis. Não são iniciadas tentativas durante a sincronização.
+1. Sincronize para consultar o catálogo de cursos, atividades e calendário por HTTP e RPC JSON. A sincronização não abre navegador, não lê texto de páginas acadêmicas e não inicia tentativas. O consumo de materiais de estudo é um fluxo separado.
 2. Confira a última sincronização, as regras e os prazos. A sincronização automática ocorre a cada 30 minutos enquanto a aplicação está ativa.
 3. Se a disciplina não aparecer, use o MCP para sincronizar seu ID externo específico.
 4. Crie gabaritos locais colando questões, ou use `create_study_set` pelo MCP. Separe questões coladas com `---`; alternativas `A)`, `B)` etc. são reconhecidas.
@@ -35,7 +35,7 @@ Se o AVA exigir uma tentativa para revelar perguntas, não existe promessa de co
 npm run portal:assessment -- ID_CURSO ID_AVALIACAO
 ```
 
-Ela usa perfil de navegador separado, grava em `data/assessments/` e não inicia tentativas. Pode precisar de login adicional. Não execute duas inspeções simultâneas com o mesmo perfil.
+Essa inspeção manual usa perfil de navegador separado, grava em `data/assessments/` e não inicia tentativas. Ela não é usada como fallback da sincronização. Pode precisar de login adicional. Não execute duas inspeções simultâneas com o mesmo perfil. Para sincronização HTTP, contratos e exportação de eventos, veja [PORTAL-API.md](PORTAL-API.md).
 
 ## IA opcional
 
